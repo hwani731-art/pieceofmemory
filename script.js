@@ -4,6 +4,8 @@ class DiaryApp {
         this.currentUser = null;
         this.users = this.loadUsers();
         this.diaries = this.loadDiaries();
+        this.selectedMood = '';
+        this.selectedImage = null;
         this.initializeApp();
     }
 
@@ -70,9 +72,72 @@ class DiaryApp {
             this.saveDiary();
         });
 
+        // 기분 선택 버튼
+        const moodBtns = document.querySelectorAll('.mood-btn');
+        moodBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.selectMood(e.target.getAttribute('data-mood'), btn);
+            });
+        });
+
+        // 사진 업로드
+        document.getElementById('diaryImage').addEventListener('change', (e) => {
+            this.handleImageUpload(e);
+        });
+
         // 오늘 날짜 기본값
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('diaryDate').value = today;
+    }
+
+    // 기분 선택
+    selectMood(mood, btn) {
+        // 이전 선택 제거
+        document.querySelectorAll('.mood-btn').forEach(b => {
+            b.classList.remove('active');
+        });
+
+        // 새로운 선택 추가
+        btn.classList.add('active');
+        this.selectedMood = mood;
+        
+        // 선택한 기분 표시
+        const moodDisplay = document.getElementById('moodDisplay');
+        moodDisplay.textContent = `선택한 기분: ${mood}`;
+        
+        // 숨겨진 입력값에 저장
+        document.getElementById('selectedMood').value = mood;
+    }
+
+    // 사진 업로드 처리
+    handleImageUpload(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                this.selectedImage = event.target.result;
+                this.displayImagePreview(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // 사진 미리보기 표시
+    displayImagePreview(imageData) {
+        const preview = document.getElementById('imagePreview');
+        preview.innerHTML = `
+            <div class="image-preview-container">
+                <img src="${imageData}" alt="미리보기">
+                <button type="button" class="remove-image-btn" onclick="app.removeImage()">×</button>
+            </div>
+        `;
+    }
+
+    // 사진 제거
+    removeImage() {
+        this.selectedImage = null;
+        document.getElementById('diaryImage').value = '';
+        document.getElementById('imagePreview').innerHTML = '';
     }
 
     // 인증 폼 토글
@@ -205,6 +270,8 @@ class DiaryApp {
             title: title,
             content: content,
             date: date,
+            mood: this.selectedMood,
+            image: this.selectedImage,
             createdAt: new Date().toLocaleString()
         };
 
@@ -212,11 +279,23 @@ class DiaryApp {
         this.saveDiaries();
 
         alert('일기가 저장되었습니다!');
+        this.resetDiaryForm();
+        this.loadDiaryList();
+    }
+
+    // 일기 폼 초기화
+    resetDiaryForm() {
         document.getElementById('diaryTitle').value = '';
         document.getElementById('diaryContent').value = '';
+        document.getElementById('selectedMood').value = '';
+        document.getElementById('moodDisplay').textContent = '';
+        document.querySelectorAll('.mood-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        this.selectedMood = '';
+        this.removeImage();
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('diaryDate').value = today;
-        this.loadDiaryList();
     }
 
     // 일기 목록 로드
@@ -237,13 +316,25 @@ class DiaryApp {
         sortedDiaries.forEach(diary => {
             const diaryItem = document.createElement('div');
             diaryItem.className = 'diary-item';
+            
+            let imageHtml = '';
+            if (diary.image) {
+                imageHtml = `<img src="${diary.image}" alt="일기 사진" class="diary-item-image">`;
+            }
+
+            let moodHtml = '';
+            if (diary.mood) {
+                moodHtml = `<span class="diary-item-mood">${diary.mood}</span>`;
+            }
+
             diaryItem.innerHTML = `
                 <div class="diary-item-header">
                     <div>
-                        <div class="diary-item-title">${this.escapeHtml(diary.title)}</div>
+                        <div class="diary-item-title">${moodHtml}${this.escapeHtml(diary.title)}</div>
                         <div class="diary-item-date">${diary.date}</div>
                     </div>
                 </div>
+                ${imageHtml}
                 <div class="diary-item-content">${this.escapeHtml(diary.content)}</div>
                 <div class="diary-item-actions">
                     <button class="btn-delete" onclick="app.deleteDiary(${diary.id})">삭제</button>
